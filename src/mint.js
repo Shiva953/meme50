@@ -18,6 +18,8 @@ import {
     getTokenMetadata,
     TYPE_SIZE,
     LENGTH_SIZE,
+    getOrCreateAssociatedTokenAccount,
+    mintTo
   } from "@solana/spl-token";
   import {
     createInitializeInstruction,
@@ -26,27 +28,43 @@ import {
     pack,
   } from "@solana/spl-token-metadata";
 import { getKeypairFromFile } from '@solana-developers/helpers'
-  
+import bs58 from 'bs58'
+import fs from 'fs';
+
 const payer = await getKeypairFromFile("~/.config/solana/id.json")
 
-const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
-  
+const connection = new Connection(clusterApiUrl("mainnet-beta"), "confirmed");
+console.log(bs58.encode(payer.secretKey))
 let transaction,transaction1,transaction2, transaction3;
   
 let transactionSignature, transactionSignature1, transactionSignature2, transactionSignature3;
 
   // Generate new keypair for Mint Account
   const mintKeypair = Keypair.generate();
+  fs.writeFile('mint_keypair.json', "[" + mintKeypair.secretKey.toString() + "]", (err) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+    console.log('Mint Keypair written to mint_keypair.json');
+  });
+
   const mint = mintKeypair.publicKey;
+  // await addKeypairToEnvFile(mintKeypair, "KEYPAIR", "../.env")
+  console.log("Mint Keypair(Public + Private Key) : ", mintKeypair)
+  console.log("Mint Public Key(Token Mint Address) : ", mint.toBase58())
+  console.log("Mint Private Key : ", mintKeypair.secretKey)
+  console.log("Mint Private Key(base58 encoded) : ", bs58.encode(mintKeypair.secretKey))
+
   const decimals = 2;
+
   // Authority that can mint new tokens
-  const mintAuthority = new PublicKey('E53C1jTq7dPJqRdw4iU2zsxzzSNmjegXLH4y1NAZWb5L');
-  // Authority that can update the metadata pointer and token metadata
-  const updateAuthority = new PublicKey('E53C1jTq7dPJqRdw4iU2zsxzzSNmjegXLH4y1NAZWb5L');
+  const mintAuthority = new PublicKey('CUdHPZyyuMCzBJEgTZnoopxhp9zjp1pog3Tgx2jEKP7E');
+  const updateAuthority = new PublicKey('CUdHPZyyuMCzBJEgTZnoopxhp9zjp1pog3Tgx2jEKP7E');
 
   const res = await fetch(`https://token.jup.ag/all`)
   const coins = await res.json()
-  const data_px = coins.slice(0,200)
+  const data_px = coins.slice(0,250)
   const data = data_px.filter((coin) => {return coin.tags.includes("community")}).slice(0,50)
 
   let meta_arr = []
@@ -66,7 +84,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
   };
   
   // Size of MetadataExtension 2 bytes for type, 2 bytes for length
-  const metadataExtension = (TYPE_SIZE + LENGTH_SIZE)*3;
+  const metadataExtension = (TYPE_SIZE + LENGTH_SIZE);
   // Size of metadata
   const metadataLen = pack(metaData).length;
   // Size of Mint Account with extension
@@ -213,21 +231,21 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
   
   console.log(
     "\nCreate Mint Account:",
-    `https://solana.fm/tx/${transactionSignature}?cluster=devnet-solana`
+    `https://solana.fm/tx/${transactionSignature}?cluster=mainnet-beta-solana`
   );
   console.log(
     "\nCreate Mint Account:",
-    `https://solana.fm/tx/${transactionSignature1}?cluster=devnet-solana`
+    `https://solana.fm/tx/${transactionSignature1}?cluster=mainnet-beta-solana`
   );
   console.log(
     "\nCreate Mint Account:",
-    `https://solana.fm/tx/${transactionSignature2}?cluster=devnet-solana`
+    `https://solana.fm/tx/${transactionSignature2}?cluster=mainnet-beta-solana`
   );
   console.log(
     "\nCreate Mint Account:",
-    `https://solana.fm/tx/${transactionSignature3}?cluster=devnet-solana`
+    `https://solana.fm/tx/${transactionSignature3}?cluster=mainnet-beta-solana`
   );
-  // Retrieve mint information
+
   const mintInfo = await getMint(
     connection,
     mint,
@@ -239,9 +257,32 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
   const metadataPointer = getMetadataPointerState(mintInfo);
   console.log("\nMetadata Pointer:", JSON.stringify(metadataPointer, null, 2));
   
-  // Retrieve and log the metadata state
+  
   const metadata = await getTokenMetadata(
     connection,
     mint // Mint Account address
   );
   console.log("\nMetadata:", JSON.stringify(metadata, null, 2));
+
+  const owner = mintAuthority
+  const tokenAccount = await getOrCreateAssociatedTokenAccount(
+    connection,
+    payer,
+    mint,
+    owner
+)
+
+console.log("Token Account Address", tokenAccount.address.toBase58())
+
+  const transactionSignatureForNewMintedTokens = await mintTo(
+    connection,
+    payer,
+    mint,
+    tokenAccount.address,
+    mintAuthority,
+    amount * 10 ** mintInfo.decimals
+  )
+  console.log(
+    "\nCreate New Mints",
+    `https://solana.fm/tx/${transactionSignatureForNewMintedTokens}?cluster=mainnet-beta-solana`
+  );
