@@ -64,7 +64,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
 
   const res = await fetch(`https://token.jup.ag/all`)
   const coins = await res.json()
-  const data_px = coins.slice(0,250)
+  const data_px = coins.slice(0,200)
   const data = data_px.filter((coin) => {return coin.tags.includes("community")}).slice(0,50)
 
   let meta_arr = []
@@ -273,7 +273,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
 )
 
 console.log("Token Account Address", tokenAccount.address.toBase58())
-
+  let amount = 20000
   const transactionSignatureForNewMintedTokens = await mintTo(
     connection,
     payer,
