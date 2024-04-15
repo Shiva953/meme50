@@ -19,7 +19,8 @@ import {
     TYPE_SIZE,
     LENGTH_SIZE,
     getOrCreateAssociatedTokenAccount,
-    mintTo
+    mintTo,
+    ASSOCIATED_TOKEN_PROGRAM_ID
   } from "@solana/spl-token";
   import {
     createInitializeInstruction,
@@ -84,7 +85,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
   };
   
   // Size of MetadataExtension 2 bytes for type, 2 bytes for length
-  const metadataExtension = (TYPE_SIZE + LENGTH_SIZE);
+  const metadataExtension = (TYPE_SIZE + LENGTH_SIZE) * 3;
   // Size of metadata
   const metadataLen = pack(metaData).length;
   // Size of Mint Account with extension
@@ -102,7 +103,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
     lamports, 
     programId: TOKEN_2022_PROGRAM_ID,
   });
-  
+  console.log(createAccountInstruction)
   // Instruction to initialize the MetadataPointer Extension
   const initializeMetadataPointerInstruction =
     createInitializeMetadataPointerInstruction(
@@ -111,7 +112,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
       mint, // Account address that holds the metadata
       TOKEN_2022_PROGRAM_ID
     );
-  
+  console.log(initializeMetadataPointerInstruction)
   const initializeMintInstruction = createInitializeMintInstruction(
     mint,
     decimals, // Decimals of Mint
@@ -119,7 +120,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
     null, // Optional Freeze Authority
     TOKEN_2022_PROGRAM_ID // Token Extension Program ID
   );
-  
+  console.log(initializeMintInstruction)
   // Instruction to initialize Metadata Account data
   const initializeMetadataInstruction = createInitializeInstruction({
     programId: TOKEN_2022_PROGRAM_ID, 
@@ -131,7 +132,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
     symbol: metaData.symbol,
     uri: metaData.uri,
   });
-  
+  console.log(initializeMetadataInstruction)
   // Instruction to update metadata, adding custom field
   // const updateFieldInstruction = createUpdateFieldInstruction({
   //   programId: TOKEN_2022_PROGRAM_ID, // Token Extension Program as Metadata Program
@@ -150,6 +151,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
       value: value,
     });
   })
+  console.log(updateInstructions)
 
   const updateInstructions1 = metaData.additionalMetadata.slice(Math.round(data.length/4),Math.round(2*data.length/4)).map(([key, value], index) => {
     return createUpdateFieldInstruction({
@@ -160,6 +162,7 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
       value: value,
     });
   });
+  console.log(updateInstructions1)
 
     const updateInstructions2 = metaData.additionalMetadata.slice(Math.round(2*data.length/4),(3*data.length/4)).map(([key, value], index) => {
       return createUpdateFieldInstruction({
@@ -192,27 +195,26 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
     // updateFieldInstruction,
     ...updateInstructions,
   );
-
+    console.log(transaction)
   transaction1 = new Transaction().add(
     ...updateInstructions1,
   );
-
+    console.log(transaction1)
   transaction2 = new Transaction().add(
     ...updateInstructions2,
   );
-
+console.log(transaction2)
   transaction3 = new Transaction().add(
     ...updateInstructions3,
   );
   
-  // Send transaction
-  console.log("public key: ",payer.publicKey.toString())
-  console.log("private key: ",payer.secretKey.toString())
+
   transactionSignature = await sendAndConfirmTransaction(
     connection,
     transaction,
     [payer, mintKeypair] 
   );
+  console.log(transactionSignature)
   transactionSignature1 = await sendAndConfirmTransaction(
     connection,
     transaction1,
@@ -269,7 +271,12 @@ let transactionSignature, transactionSignature1, transactionSignature2, transact
     connection,
     payer,
     mint,
-    owner
+    owner,
+    false,
+    "confirmed",
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
 )
 
 console.log("Token Account Address", tokenAccount.address.toBase58())
@@ -280,7 +287,10 @@ console.log("Token Account Address", tokenAccount.address.toBase58())
     mint,
     tokenAccount.address,
     mintAuthority,
-    amount * 10 ** mintInfo.decimals
+    amount * 10 ** mintInfo.decimals,
+    [payer],
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
   )
   console.log(
     "\nCreate New Mints",
